@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic RAG Explorer - Interactive Demo</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --primary: #00d4ff;
+            --secondary: #a855f7;
+            --accent: #10b981;
+            --warning: #fbbf24;
+            --danger: #fb7185;
+            --base-dark: rgba(9, 13, 33, 0.8);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-muted: rgba(255, 255, 255, 0.65);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: radial-gradient(circle at 20% 20%, rgba(168, 85, 247, 0.15), transparent 45%),
+                        radial-gradient(circle at 80% 0%, rgba(0, 212, 255, 0.25), transparent 40%),
+                        linear-gradient(135deg, #060814 0%, #0e1224 55%, #1f1533 100%);
+            color: #f8fbff;
+            min-height: 100vh;
+            padding: 40px clamp(16px, 3vw, 48px);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: url('data:image/svg+xml,%3Csvg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="0.5"%3E%3Cpath d="M0 0H400V400H0z"/%3E%3Cpath d="M50 0V400M100 0V400M150 0V400M200 0V400M250 0V400M300 0V400M350 0V400M0 50H400M0 100H400M0 150H400M0 200H400M0 250H400M0 300H400M0 350H400"/%3E%3C/g%3E%3C/svg%3E');
+            opacity: 0.6;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .app-shell {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        #hero {
+            background: linear-gradient(120deg, rgba(0, 212, 255, 0.12), rgba(168, 85, 247, 0.12));
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: clamp(20px, 4vw, 36px);
+            backdrop-filter: blur(22px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+        }
+
+        .eyebrow {
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 3vw, 3.2rem);
+            font-weight: 600;
+            background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 8s ease infinite;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            margin-top: 8px;
+            max-width: 520px;
+            line-height: 1.5;
+        }
+
+        .hero-chips {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 16px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .chip-secondary {
+            border-color: var(--secondary);
+            color: var(--secondary);
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: minmax(260px, 0.9fr) 1.2fr minmax(320px, 1fr);
+            gap: 24px;
+        }
+
+        .glass-card {
+            background: var(--base-dark);
+            border: 1px solid var(--card-border);
+            border-radius: 22px;
+            padding: 26px;
+            backdrop-filter: blur(18px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            pointer-events: none;
+        }
+
+        .panel-heading {
+            margin-bottom: 20px;
+        }
+
+        .panel-eyebrow {
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .panel-heading h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+
+        .panel-heading p {
+            color: var(--text-muted);
+            margin-top: 6px;
+            line-height: 1.5;
+        }
+
+        .scenario-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .scenario-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 16px 18px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            cursor: pointer;
+            transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scenario-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, transparent, rgba(0, 212, 255, 0.12), transparent);
+            opacity: 0;
+            transition: opacity 0.35s ease;
+        }
+
+        .scenario-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(0, 212, 255, 0.45);
+        }
+
+        .scenario-card:hover::before {
+            opacity: 1;
+        }
+
+        .scenario-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            background: rgba(0, 212, 255, 0.08);
+            flex-shrink: 0;
+        }
+
+        .scenario-icon svg {
+            width: 20px;
+            height: 20px;
+            stroke-width: 1.4;
+        }
+
+        .scenario-card h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .scenario-card p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .scenario-route {
+            color: var(--primary);
+            font-weight: 500;
+            margin-top: 6px;
+        }
+
+        .mini {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            color: var(--primary);
+        }
+
+        .status-card,
+        .insight-card,
+        .performance-card {
+            margin-top: 24px;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 18px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .status-indicator {
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: 0.3em;
+            color: rgba(255, 255, 255, 0.4);
+            transition: color 0.3s ease;
+        }
+
+        .status-indicator.is-processing {
+            color: var(--primary);
+        }
+
+        .status-indicator.is-complete {
+            color: var(--accent);
+        }
+
+        .status-indicator.is-idle {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .status-detail {
+            margin-top: 8px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .insight-card strong {
+            color: var(--secondary);
+        }
+
+        .flow-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .flow-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            margin-top: 6px;
+        }
+
+        .flow-label {
+            text-transform: uppercase;
+            letter-spacing: 0.3em;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .flow-connector {
+            width: 2px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .flow-node {
+            width: 100%;
+            max-width: 380px;
+            border-radius: 18px;
+            padding: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(12, 16, 40, 0.85);
+            text-align: center;
+            transition: border 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+        }
+
+        .flow-node h4 {
+            font-size: 1rem;
+        }
+
+        .flow-node p {
+            margin-top: 6px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        #node-web {
+            border-color: rgba(245, 158, 11, 0.35);
+            color: #fdba74;
+        }
+
+        #node-generate {
+            border-color: rgba(16, 185, 129, 0.35);
+            color: #6ee7b7;
+        }
+
+        .branch-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: 6px 0;
+        }
+
+        .branch-indicator span {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 999px;
+            padding: 6px 12px;
+            letter-spacing: 0.15em;
+        }
+
+        .performance-card h3 {
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .perf-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+
+        .perf-row span:last-child {
+            font-weight: 600;
+        }
+
+        .log-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .window-dots {
+            display: flex;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .terminal {
+            flex: 1;
+            margin-top: 12px;
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 18px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 0.82rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .log-entry {
+            color: rgba(226, 232, 240, 0.8);
+        }
+
+        .log-muted { color: rgba(148, 163, 184, 0.75); }
+        .log-blue { color: #7dd3fc; }
+        .log-cyan { color: #99f6e4; }
+        .log-green { color: #86efac; }
+        .log-yellow { color: #fde68a; }
+        .log-orange { color: #fdba74; }
+        .log-red { color: #fca5a5; }
+
+        .final-result {
+            margin-top: 18px;
+            border-radius: 16px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            background: rgba(12, 44, 60, 0.6);
+            padding: 18px;
+            font-size: 0.9rem;
+            color: #e2f9ff;
+        }
+
+        .final-result strong {
+            color: var(--primary);
+        }
+
+        .bottom-insight {
+            text-align: center;
+            line-height: 1.6;
+            color: var(--text-muted);
+        }
+
+        .bottom-insight strong {
+            color: var(--primary);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { filter: hue-rotate(0deg); }
+            50% { filter: hue-rotate(90deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 12px rgba(0, 212, 255, 0.15); }
+            50% { box-shadow: 0 0 24px rgba(0, 212, 255, 0.35); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .thinking {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .log-entry-animate {
+            animation: slideIn 0.25s ease-out forwards;
+        }
+
+        .node-active {
+            border-color: rgba(0, 212, 255, 0.8);
+            box-shadow: 0 0 18px rgba(0, 212, 255, 0.35);
+        }
+
+        .node-success {
+            border-color: rgba(16, 185, 129, 0.9);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+        }
+
+        .node-warning {
+            border-color: rgba(251, 191, 36, 0.8);
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.25);
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 900px) {
+            body {
+                padding: 24px 18px;
+            }
+
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <header id="hero">
+            <div>
+                <p class="eyebrow">LangGraph x Agentic RAG</p>
+                <h1>Agentic RAG Explorer</h1>
+                <p class="subtitle">Watch the graph think — from confidence-weighted routing to fallback strategy.</p>
+            </div>
+            <div class="hero-chips">
+                <span class="chip">Interactive Demo</span>
+                <span class="chip chip-secondary">Realtime Decisions</span>
+            </div>
+        </header>
+
+        <main class="dashboard">
+            <section class="glass-card scenario-panel">
+                <div class="panel-heading">
+                    <p class="panel-eyebrow">Step 01</p>
+                    <h2>Choose a Scenario</h2>
+                    <p>Trigger an end-to-end LangGraph run — confidence scores, context checks, failover and all.</p>
+                </div>
+
+                <div class="scenario-list">
+                    <button type="button" onclick="runDemo('medical')" class="scenario-card">
+                        <span class="scenario-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <rect x="4" y="4" width="16" height="16" rx="4"></rect>
+                                <path d="M12 8v8M8 12h8"></path>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3>Medical Knowledge</h3>
+                            <p>"What are the treatments for Kawasaki disease?"</p>
+                            <p class="scenario-route">→ Medical Q&A Database</p>
+                        </div>
+                        <span class="chip mini">92%</span>
+                    </button>
+
+                    <button type="button" onclick="runDemo('creative')" class="scenario-card">
+                        <span class="scenario-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M4 20l4.5-4.5M13 4l7 7-9.5 9.5H4V16.5z"></path>
+                                <path d="M15 7l2 2"></path>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3>Creative Content</h3>
+                            <p>"Write a product launch email for an AI workflow tool"</p>
+                            <p class="scenario-route">→ Creative Templates</p>
+                        </div>
+                        <span class="chip mini">88%</span>
+                    </button>
+
+                    <button type="button" onclick="runDemo('marketing')" class="scenario-card">
+                        <span class="scenario-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M4 4h4l3 9 4-12 3 9h3"></path>
+                                <path d="M2 20h20"></path>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3>Marketing Trends</h3>
+                            <p>"What are the top LinkedIn formats in 2025?"</p>
+                            <p class="scenario-route">→ Web Search</p>
+                        </div>
+                        <span class="chip mini">95%</span>
+                    </button>
+
+                    <button type="button" onclick="runDemo('brand')" class="scenario-card">
+                        <span class="scenario-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <circle cx="8" cy="8" r="4"></circle>
+                                <path d="M12 12l6 6M12 6h8M6 12v8"></path>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3>Brand Strategy</h3>
+                            <p>"What colors work for healthcare websites?"</p>
+                            <p class="scenario-route">→ Fallback required</p>
+                        </div>
+                        <span class="chip mini">58%</span>
+                    </button>
+                </div>
+
+                <div class="status-card">
+                    <div class="status-header">
+                        <span>Status</span>
+                        <span>Realtime</span>
+                    </div>
+                    <div id="status-indicator" class="status-indicator is-idle">READY</div>
+                    <p id="status-detail" class="status-detail hidden"></p>
+                </div>
+
+                <div class="insight-card">
+                    <p><strong>Key Insight:</strong> Watch how confidence scores steer routing. The 58% vs 75% knife-edge shows where uncertainty hides.</p>
+                </div>
+            </section>
+
+            <section class="glass-card flow-panel">
+                <div class="panel-heading">
+                    <p class="panel-eyebrow">Step 02</p>
+                    <h2>LangGraph Flow</h2>
+                    <p>Nodes, checks, and fallback decisions — highlighted live.</p>
+                </div>
+
+                <div class="flow-stack">
+                    <span class="flow-label">Start</span>
+                    <div class="flow-connector"></div>
+
+                    <div id="node-router" class="flow-node">
+                        <h4>Router</h4>
+                        <p>Analyze &amp; Route</p>
+                    </div>
+                    <div class="flow-connector"></div>
+
+                    <div id="node-retrieve" class="flow-node">
+                        <h4>Retrieval</h4>
+                        <p>Fetch Context</p>
+                    </div>
+                    <div class="flow-connector"></div>
+
+                    <div id="node-check" class="flow-node">
+                        <h4>Relevance Check</h4>
+                        <p>Validate Context</p>
+                    </div>
+
+                    <div class="branch-indicator">
+                        <span>If Irrelevant</span>
+                    </div>
+
+                    <div id="node-web" class="flow-node">
+                        <h4>Web Search</h4>
+                        <p>Fallback Strategy</p>
+                    </div>
+                    <div class="flow-connector"></div>
+
+                    <div id="node-generate" class="flow-node">
+                        <h4>Generate</h4>
+                        <p>Create Answer</p>
+                    </div>
+
+                    <div class="flow-connector"></div>
+                    <span class="flow-label">End</span>
+                </div>
+
+                <div class="performance-card">
+                    <h3>Performance Snapshot</h3>
+                    <div class="perf-row">
+                        <span>Traditional RAG</span>
+                        <span>$0.02 • 800ms • 75%</span>
+                    </div>
+                    <div class="perf-row">
+                        <span>Agentic RAG</span>
+                        <span class="chip mini">$0.08 • 3.2s • 94%</span>
+                    </div>
+                    <p class="status-detail" style="margin-top: 12px;">4× cost &amp; latency, +25% accuracy.</p>
+                </div>
+            </section>
+
+            <section class="glass-card log-panel">
+                <div class="panel-heading" style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <p class="panel-eyebrow">Step 03</p>
+                        <h2>Decision Log</h2>
+                        <p>Every thought — streamed in the terminal.</p>
+                    </div>
+                    <div class="window-dots">
+                        <span class="dot" style="background:#f87171;"></span>
+                        <span class="dot" style="background:#facc15;"></span>
+                        <span class="dot" style="background:#34d399;"></span>
+                    </div>
+                </div>
+
+                <div id="log-container" class="terminal">
+                    <p class="log-entry log-muted">&gt; System initialized. Choose a scenario...</p>
+                    <p class="log-entry log-muted">&gt; Awaiting input...</p>
+                </div>
+
+                <div id="final-result" class="final-result hidden">
+                    <strong>Final Answer:</strong>
+                    <p id="answer-text" style="margin-top:10px;"></p>
+                </div>
+            </section>
+        </main>
+
+        <section class="bottom-insight glass-card">
+            <p><strong>🧠 The real insight:</strong> The magic isn't the 92% confidence score. It's the hesitation at 48% vs 52% — that's where uncertainty lives and agentic RAG steps in.</p>
+        </section>
+    </div>
+
+    <script>
+        const scenarios = {
+            medical: {
+                query: "What are the treatments for Kawasaki disease?",
+                logs: [
+                    { node: 'node-router', msg: 'Query received: "What are the treatments for Kawasaki disease?"', color: 'blue' },
+                    { node: 'node-router', msg: 'Analyzing keywords: [treatment, disease, kawasaki]', color: 'blue' },
+                    { node: 'node-router', msg: 'Confidence scores → Medical Q&A: 92% | Templates: 18% | Web: 25%', color: 'cyan' },
+                    { node: 'node-router', msg: '✓ DECISION: Route to Medical Q&A database (92% confidence)', color: 'green' },
+                    { node: 'node-router', msg: 'Reasoning: Domain-specific medical knowledge query', color: 'blue' },
+                    { node: 'node-retrieve', msg: 'Connecting to Medical Q&A database (ChromaDB)...', color: 'blue' },
+                    { node: 'node-retrieve', msg: 'Searching for: treatments, kawasaki disease, medical protocols', color: 'blue' },
+                    { node: 'node-retrieve', msg: '✓ Retrieved 3 relevant documents (0.4s)', color: 'green' },
+                    { node: 'node-check', msg: 'Analyzing document relevance...', color: 'blue' },
+                    { node: 'node-check', msg: 'Relevance score: 0.98/1.00 (Excellent match)', color: 'cyan' },
+                    { node: 'node-check', msg: '✓ PASSED: Context directly answers the query', color: 'green' },
+                    { node: 'node-generate', msg: 'Generating answer from validated medical context...', color: 'blue' },
+                    { node: 'node-generate', msg: '✓ Answer generated successfully', color: 'green' }
+                ],
+                answer: "Kawasaki disease treatment typically includes high-dose intravenous immunoglobulin (IVIG) and aspirin. IVIG is most effective when given within 10 days of fever onset. Treatment aims to reduce inflammation and prevent coronary artery complications."
+            },
+            creative: {
+                query: "Write a product launch email for an AI-powered workflow automation tool",
+                logs: [
+                    { node: 'node-router', msg: 'Query received: "Write a product launch email..."', color: 'blue' },
+                    { node: 'node-router', msg: 'Analyzing keywords: [write, email, product launch, automation tool]', color: 'blue' },
+                    { node: 'node-router', msg: 'Confidence scores → Medical: 12% | Templates: 88% | Web: 25%', color: 'cyan' },
+                    { node: 'node-router', msg: '✓ DECISION: Route to Creative Templates database (88% confidence)', color: 'green' },
+                    { node: 'node-router', msg: 'Reasoning: Structured content generation with brand voice patterns', color: 'blue' },
+                    { node: 'node-retrieve', msg: 'Connecting to Creative Templates database...', color: 'blue' },
+                    { node: 'node-retrieve', msg: 'Searching for: product launch, email templates, B2B SaaS', color: 'blue' },
+                    { node: 'node-retrieve', msg: '✓ Retrieved 5 template patterns (0.3s)', color: 'green' },
+                    { node: 'node-check', msg: 'Analyzing template-query alignment...', color: 'blue' },
+                    { node: 'node-check', msg: 'Relevance score: 0.91/1.00 (Strong match)', color: 'cyan' },
+                    { node: 'node-check', msg: '✓ PASSED: Templates match product launch structure', color: 'green' },
+                    { node: 'node-generate', msg: 'Generating email using template patterns + brand voice...', color: 'blue' },
+                    { node: 'node-generate', msg: '✓ Creative content generated successfully', color: 'green' }
+                ],
+                answer: "Subject: Transform Your Workflow — Introducing [Product]\n\nWe've built something different. Not another automation tool that promises the world and delivers spreadsheets.\n\nThis is AI that actually understands your work. It watches. It learns. It anticipates.\n\n→ 3-hour tasks? Now 15 minutes.\n→ Manual data entry? Gone.\n→ Context switching? Eliminated.\n\nEarly access opens Monday. Limited spots."
+            },
+            marketing: {
+                query: "What are the top-performing LinkedIn content formats in 2025?",
+                logs: [
+                    { node: 'node-router', msg: 'Query received: "What are the top-performing LinkedIn formats..."', color: 'blue' },
+                    { node: 'node-router', msg: 'Analyzing keywords: [top-performing, linkedin, formats, 2025]', color: 'blue' },
+                    { node: 'node-router', msg: 'Confidence scores → Medical: 8% | Templates: 15% | Web: 95%', color: 'cyan' },
+                    { node: 'node-router', msg: '✓ DECISION: Route to Web Search (95% confidence)', color: 'green' },
+                    { node: 'node-router', msg: 'Reasoning: Current trends require live platform data', color: 'blue' },
+                    { node: 'node-web', msg: 'Initiating Web Search via SerperAPI...', color: 'orange' },
+                    { node: 'node-web', msg: 'Query: "linkedin content formats performance 2025 trends"', color: 'orange' },
+                    { node: 'node-web', msg: '✓ Retrieved 8 results from current sources (1.2s)', color: 'green' },
+                    { node: 'node-check', msg: 'Analyzing search result relevance...', color: 'blue' },
+                    { node: 'node-check', msg: 'Relevance score: 0.93/1.00 (Current data confirmed)', color: 'cyan' },
+                    { node: 'node-check', msg: '✓ PASSED: Results contain up-to-date LinkedIn trends', color: 'green' },
+                    { node: 'node-generate', msg: 'Synthesizing trends from multiple sources...', color: 'blue' },
+                    { node: 'node-generate', msg: '✓ Marketing insights generated successfully', color: 'green' }
+                ],
+                answer: "Top LinkedIn formats in 2025:\n\n1. Carousel posts (3.2× engagement vs single images)\n2. Personal storytelling with data hooks\n3. Industry analysis threads (4-7 posts)\n4. Behind-the-scenes process videos (<60 sec)\n5. Contrarian takes backed by research\n\nKey shift: The algorithm prioritizes genuine expertise over polished corporate content."
+            },
+            brand: {
+                query: "What colors work best for healthcare brand websites?",
+                logs: [
+                    { node: 'node-router', msg: 'Query received: "What colors work best for healthcare brands..."', color: 'blue' },
+                    { node: 'node-router', msg: 'Analyzing keywords: [colors, healthcare, brand, websites]', color: 'blue' },
+                    { node: 'node-router', msg: 'Confidence scores → Medical: 58% | Templates: 22% | Web: 75%', color: 'cyan' },
+                    { node: 'node-router', msg: '⚠ DECISION: Route to Medical Q&A (58% - borderline confidence)', color: 'yellow' },
+                    { node: 'node-router', msg: 'Reasoning: "Healthcare" keyword detected (possible false positive)', color: 'blue' },
+                    { node: 'node-retrieve', msg: 'Connecting to Medical Q&A database...', color: 'blue' },
+                    { node: 'node-retrieve', msg: 'Searching for: healthcare, colors, branding...', color: 'blue' },
+                    { node: 'node-retrieve', msg: '✓ Retrieved 2 documents (0.3s)', color: 'green' },
+                    { node: 'node-check', msg: 'Analyzing document relevance...', color: 'blue' },
+                    { node: 'node-check', msg: 'Relevance score: 0.18/1.00 (Weak alignment)', color: 'red' },
+                    { node: 'node-check', msg: '✗ FAILED: Documents cover medical conditions, not design psychology', color: 'red' },
+                    { node: 'node-check', msg: '→ Triggering fallback strategy...', color: 'orange' },
+                    { node: 'node-web', msg: '🔄 REFINEMENT: Switching to Web Search for better context...', color: 'orange' },
+                    { node: 'node-web', msg: 'Query: "healthcare brand website colors design psychology"', color: 'orange' },
+                    { node: 'node-web', msg: '✓ Retrieved 6 design-focused results (1.1s)', color: 'green' },
+                    { node: 'node-check', msg: 'Re-analyzing new context...', color: 'blue' },
+                    { node: 'node-check', msg: 'Relevance score: 0.94/1.00 (Excellent match after correction)', color: 'cyan' },
+                    { node: 'node-check', msg: '✓ PASSED: Context now addresses design principles', color: 'green' },
+                    { node: 'node-generate', msg: 'Generating answer from corrected web context...', color: 'blue' },
+                    { node: 'node-generate', msg: '✓ Answer generated with fallback strategy', color: 'green' }
+                ],
+                answer: "Healthcare brand color psychology:\n\n• Blue (trust, stability) — used by ~60% of healthcare brands\n• Green (health, renewal) — rising trend, especially in wellness/prevention\n• White (cleanliness, simplicity) — essential for medical clarity\n• Avoid: Red (emergency associations), Black (too corporate/cold)\n\nKey insight: Consistency and accessibility (WCAG compliance) matter more than the exact palette."
+            }
+        };
+
+        const colors = {
+            blue: 'log-blue',
+            cyan: 'log-cyan',
+            green: 'log-green',
+            yellow: 'log-yellow',
+            orange: 'log-orange',
+            red: 'log-red'
+        };
+
+        async function runDemo(scenarioType) {
+            const scenario = scenarios[scenarioType];
+            if (!scenario) return;
+
+            resetUI();
+            updateStatus('PROCESSING', 'Analyzing query and routing decision...');
+
+            for (let i = 0; i < scenario.logs.length; i++) {
+                const step = scenario.logs[i];
+                highlightNode(step.node);
+                addLogEntry(step.msg, step.color);
+                await sleep(800);
+                const node = document.getElementById(step.node);
+                if (node) {
+                    node.classList.remove('thinking');
+                    if (step.color === 'green' || i === scenario.logs.length - 1) {
+                        node.classList.add('node-success');
+                    }
+                }
+            }
+
+            updateStatus('COMPLETED', 'Answer generated successfully');
+            document.getElementById('answer-text').innerText = scenario.answer;
+            document.getElementById('final-result').classList.remove('hidden');
+        }
+
+        function resetUI() {
+            document.querySelectorAll('[id^="node-"]').forEach(node => {
+                node.classList.remove('node-active', 'node-success', 'node-warning', 'thinking');
+            });
+
+            document.getElementById('log-container').innerHTML = '<p class="log-entry log-muted">&gt; Starting new analysis...</p>';
+            document.getElementById('final-result').classList.add('hidden');
+            const statusEl = document.getElementById('status-indicator');
+            statusEl.className = 'status-indicator is-idle';
+            statusEl.innerText = 'READY';
+            document.getElementById('status-detail').classList.add('hidden');
+        }
+
+        function updateStatus(status, detail) {
+            const statusEl = document.getElementById('status-indicator');
+            const detailEl = document.getElementById('status-detail');
+
+            statusEl.className = 'status-indicator';
+
+            if (status === 'PROCESSING') {
+                statusEl.classList.add('is-processing');
+            } else if (status === 'COMPLETED') {
+                statusEl.classList.add('is-complete');
+            } else {
+                statusEl.classList.add('is-idle');
+            }
+
+            statusEl.innerText = status;
+
+            if (detail) {
+                detailEl.innerText = detail;
+                detailEl.classList.remove('hidden');
+            } else {
+                detailEl.classList.add('hidden');
+            }
+        }
+
+        function highlightNode(nodeId) {
+            const node = document.getElementById(nodeId);
+            if (!node) return;
+            node.classList.add('node-active', 'thinking');
+        }
+
+        function addLogEntry(message, color = 'blue') {
+            const container = document.getElementById('log-container');
+            const entry = document.createElement('p');
+            entry.className = `log-entry log-entry-animate ${colors[color] || colors.blue}`;
+            entry.innerHTML = `&gt; ${message}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>
